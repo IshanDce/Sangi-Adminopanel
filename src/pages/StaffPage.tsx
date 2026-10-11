@@ -107,6 +107,33 @@ export const StaffPage: React.FC = () => {
     }
   };
 
+  const handleApproveKyc = async (staff: any) => {
+    const name = staff.fullName || staff.name || 'Staff Partner';
+    if (!window.confirm(`Approve KYC verification for ${name}? This will verify their identity documents and enable them to receive real-time customer bookings.`)) {
+      return;
+    }
+    setActionLoading(true);
+    try {
+      await api.updateStaffKyc(staff._id, 'approve');
+      alert(`KYC Approved successfully for ${name}! Profile is now live and eligible for customer orders.`);
+      fetchStaff();
+      if (isDetailOpen && selectedStaff?._id === staff._id) {
+        setSelectedStaff({
+          ...selectedStaff,
+          profile: {
+            ...selectedStaff.profile,
+            kycStatus: 'approved',
+            isKycVerified: true,
+          },
+        });
+      }
+    } catch (err: any) {
+      alert(err.message || 'Approval failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
   return (
@@ -557,6 +584,44 @@ export const StaffPage: React.FC = () => {
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* KYC Verification Status & Action */}
+              <div style={{
+                background: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 16,
+              }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ShieldCheck size={18} color={selectedStaff.profile?.kycStatus === 'approved' ? '#16A34A' : '#F59E0B'} />
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                      KYC Compliance & Order Eligibility
+                    </span>
+                    <StatusBadge status={selectedStaff.profile?.kycStatus || 'pending'} />
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: 4 }}>
+                    {selectedStaff.profile?.kycStatus === 'approved'
+                      ? 'Identity documents verified. Partner is active and authorized to accept live customer bookings.'
+                      : 'Pending KYC review. Approving will activate their live profile to receive customer orders.'}
+                  </div>
+                </div>
+                {selectedStaff.profile?.kycStatus !== 'approved' && (
+                  <button
+                    onClick={() => handleApproveKyc(selectedStaff)}
+                    disabled={actionLoading}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}
+                  >
+                    <ShieldCheck size={14} />
+                    <span>Approve KYC Now</span>
+                  </button>
+                )}
               </div>
 
               {/* Bank & Payout Details (Rule #9) */}

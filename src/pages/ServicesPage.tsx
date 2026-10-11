@@ -282,8 +282,9 @@ export const ServicesPage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: 20 }}>
             {filteredServices.map((s) => {
               // Direct image from mobile app assets copied into public/services/
-              const mobileAppImg = `/services/${s.slug}.png`;
-              const displayImg = mobileAppImg;
+              const displayImg = (s.imageUrl && (s.imageUrl.startsWith('http://') || s.imageUrl.startsWith('https://')) && !s.imageUrl.includes('unsplash.com'))
+                ? s.imageUrl
+                : `/services/${s.slug}.png`;
 
               return (
                 <div
