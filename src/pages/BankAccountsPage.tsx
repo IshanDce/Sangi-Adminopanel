@@ -117,11 +117,29 @@ export const BankAccountsPage: React.FC = () => {
 
   const copyToClipboard = (text: string, key: string) => {
     if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => {
-      if (isMountedRef.current) setCopiedKey(null);
-    }, 2000);
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for HTTP IP address contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        textArea.remove();
+      }
+      setCopiedKey(key);
+      setTimeout(() => {
+        if (isMountedRef.current) setCopiedKey(null);
+      }, 2000);
+    } catch (e) {
+      console.warn('Failed to copy text:', e);
+    }
   };
 
   const filteredAccounts = accounts.filter((item) => {
