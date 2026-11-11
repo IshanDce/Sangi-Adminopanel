@@ -24,8 +24,8 @@ export const BookingsPage: React.FC = () => {
     setIsLoading(true);
     try {
       let statusParam: string | undefined = undefined;
-      if (activeTab === 'ongoing') statusParam = 'in_progress';
-      else if (activeTab === 'upcoming') statusParam = 'pending';
+      if (activeTab === 'ongoing') statusParam = 'ongoing';
+      else if (activeTab === 'upcoming') statusParam = 'upcoming';
       else if (activeTab === 'completed') statusParam = 'completed';
       else if (activeTab === 'cancelled') statusParam = 'cancelled';
 
@@ -62,28 +62,67 @@ export const BookingsPage: React.FC = () => {
     setIsDetailOpen(true);
   };
 
+  // Extract real coordinates from either { lat, lng } object, [lat, lng] array, or customer last-known GPS
+  const extractLatLng = (b: any): { lat: number; lng: number } | null => {
+    if (b?.coordinates && typeof b.coordinates === 'object') {
+      if (Array.isArray(b.coordinates) && b.coordinates.length === 2) {
+        return { lat: Number(b.coordinates[0]), lng: Number(b.coordinates[1]) };
+      }
+      if (b.coordinates.lat != null && b.coordinates.lng != null) {
+        return { lat: Number(b.coordinates.lat), lng: Number(b.coordinates.lng) };
+      }
+    }
+    if (b?.customerId?.lastKnownLat != null && b?.customerId?.lastKnownLng != null) {
+      return { lat: Number(b.customerId.lastKnownLat), lng: Number(b.customerId.lastKnownLng) };
+    }
+    return null;
+  };
+
   // Helper for Maps link
   const getGoogleMapsUrl = (b: any) => {
-    if (b.coordinates && Array.isArray(b.coordinates) && b.coordinates.length === 2) {
-      const [lat, lng] = b.coordinates;
-      return `https://www.google.com/maps?q=${lat},${lng}`;
+    const coords = extractLatLng(b);
+    if (coords) {
+      return `https://www.google.com/maps?q=${coords.lat},${coords.lng}`;
     }
-    if (b.customerId?.lastKnownLat && b.customerId?.lastKnownLng) {
-      return `https://www.google.com/maps?q=${b.customerId.lastKnownLat},${b.customerId.lastKnownLng}`;
-    }
-    const loc = b.location || 'Gurgaon, India';
+    const loc = b.location || 'Raipur, India';
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
   };
 
   const getCoordinatesDisplay = (b: any) => {
-    if (b.coordinates && Array.isArray(b.coordinates) && b.coordinates.length === 2) {
-      return `${b.coordinates[0].toFixed(4)}, ${b.coordinates[1].toFixed(4)}`;
-    }
-    if (b.customerId?.lastKnownLat && b.customerId?.lastKnownLng) {
-      return `${b.customerId.lastKnownLat.toFixed(4)}, ${b.customerId.lastKnownLng.toFixed(4)}`;
+    const coords = extractLatLng(b);
+    if (coords) {
+      return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
     }
     return null;
   };
+
+  // Extract genuine billing amounts submitted by staff upon service completion (zero hardcoded dummies)
+  const getPricingBreakdown = (b: any) => {
+    const bookingFee = Number(b?.bookingFee ?? 0);
+    const hasServiceCharge = b?.serviceCharge !== undefined && b?.serviceCharge !== null;
+    const hasAdditionalCharge = b?.additionalCharge !== undefined && b?.additionalCharge !== null;
+    const hasTotalServiceAmount = b?.totalServiceAmount !== undefined && b?.totalServiceAmount !== null;
+
+    const hasStaffBill = hasServiceCharge || hasAdditionalCharge || hasTotalServiceAmount;
+
+    const serviceCharge = Number(b?.serviceCharge ?? 0);
+    const additionalCharge = Number(b?.additionalCharge ?? 0);
+    const staffBillTotal = hasTotalServiceAmount
+      ? Number(b.totalServiceAmount)
+      : (hasStaffBill ? serviceCharge + additionalCharge : 0);
+    const netTotal = bookingFee + staffBillTotal;
+
+    return {
+      bookingFee,
+      hasStaffBill,
+      serviceCharge,
+      additionalCharge,
+      staffBillTotal,
+      netTotal,
+    };
+  };
+
+  const selectedBreakdown = selectedBooking ? getPricingBreakdown(selectedBooking) : null;
 
   return (
     <AdminShell
@@ -188,7 +227,7 @@ export const BookingsPage: React.FC = () => {
                   <th>Assigned Staff</th>
                   <th>Schedule</th>
                   <th>Live Location / GPS (Rule #5)</th>
-                  <th>Booking Fee</th>
+                  <th>Booking & Service Fee</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -213,6 +252,7 @@ export const BookingsPage: React.FC = () => {
                 ) : (
                   bookings.map((b) => {
                     const coords = getCoordinatesDisplay(b);
+                    const pricing = getPricingBreakdown(b);
                     const customerName = b.customerId?.fullName || b.customer?.name || 'Customer';
                     const customerPhone = b.customerId?.phone || b.customer?.phone || b.contactPhone || 'N/A';
                     const staffName = b.staffId?.fullName || b.staff?.name;
@@ -313,12 +353,17 @@ export const BookingsPage: React.FC = () => {
                           </div>
                         </td>
 
-                        {/* Booking Fee */}
+                        {/* Booking Fee & Staff Service Bill */}
                         <td>
                           <div style={{ fontSize: '14px', fontWeight: 800, color: '#15803D' }}>
-                            ₹{b.bookingFee || 49}
+                            ₹{pricing.bookingFee.toLocaleString('en-IN')}
                           </div>
                           <div style={{ fontSize: '10.5px', color: '#64748B' }}>Platform Fee</div>
+                          {pricing.hasStaffBill && (
+                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F172A', marginTop: 3 }}>
+                              Service Bill: ₹{pricing.staffBillTotal.toLocaleString('en-IN')}
+                            </div>
+                          )}
                         </td>
 
                         {/* Status */}
@@ -377,7 +422,7 @@ export const BookingsPage: React.FC = () => {
           subtitle={`Created on ${selectedBooking?.createdAt ? new Date(selectedBooking.createdAt).toLocaleString() : 'N/A'}`}
           maxWidth="640px"
         >
-          {selectedBooking && (
+          {selectedBooking && selectedBreakdown && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
               {/* Service & Status Strip */}
               <div style={{
@@ -415,23 +460,72 @@ export const BookingsPage: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '13px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8FAFC' }}>
                     <span style={{ color: '#475569' }}>Platform Booking Fee:</span>
-                    <span style={{ fontWeight: 700, color: '#0F172A' }}>₹{selectedBooking.bookingFee || 49}</span>
+                    <span style={{ fontWeight: 700, color: '#0F172A' }}>
+                      ₹{selectedBreakdown.bookingFee.toLocaleString('en-IN')}
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 10px', background: '#F0FDF4', borderRadius: '8px' }}>
-                    <span style={{ color: '#166534', fontWeight: 700 }}>Staff Service Labor Charge:</span>
-                    <span style={{ fontWeight: 800, color: '#15803D' }}>₹{selectedBooking.pricing?.staffServiceCharge || 299}</span>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '8px 10px',
+                    background: selectedBreakdown.hasStaffBill ? '#F0FDF4' : '#F8FAFC',
+                    borderRadius: '8px',
+                  }}>
+                    <span style={{ color: selectedBreakdown.hasStaffBill ? '#166534' : '#475569', fontWeight: 700 }}>
+                      Staff Service Labor Charge:
+                    </span>
+                    {selectedBreakdown.hasStaffBill ? (
+                      <span style={{ fontWeight: 800, color: '#15803D' }}>
+                        ₹{selectedBreakdown.serviceCharge.toLocaleString('en-IN')}
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: 600, color: '#64748B', fontStyle: 'italic' }}>
+                        Not billed yet
+                      </span>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F8FAFC' }}>
-                    <span style={{ color: '#475569' }}>Spare Parts / Materials:</span>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>₹{selectedBooking.pricing?.additionalCharges || 0}</span>
+                    <span style={{ color: '#475569' }}>Spare Parts / Additional Charges:</span>
+                    <span style={{ fontWeight: 600, color: selectedBreakdown.hasStaffBill ? '#0F172A' : '#94A3B8' }}>
+                      {selectedBreakdown.hasStaffBill
+                        ? `₹${selectedBreakdown.additionalCharge.toLocaleString('en-IN')}`
+                        : '—'}
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0 0', borderTop: '2px solid #E2E8F0', fontSize: '15px', fontWeight: 800 }}>
+                  {selectedBreakdown.hasStaffBill && (
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 10px',
+                      background: '#ECFDF5',
+                      border: '1px solid #BBF7D0',
+                      borderRadius: '8px',
+                    }}>
+                      <div>
+                        <div style={{ color: '#166534', fontWeight: 700 }}>Total Service Bill (Assigned by Staff)</div>
+                        <div style={{ fontSize: '11px', color: '#475569' }}>
+                          {selectedBooking.serviceFeePayment?.method
+                            ? `Paid via ${selectedBooking.serviceFeePayment.method.toUpperCase()}`
+                            : selectedBooking.status === 'paymentPending'
+                              ? 'Awaiting customer payment'
+                              : 'Submitted after service completion'}
+                        </div>
+                      </div>
+                      <span style={{ fontWeight: 800, color: '#15803D', fontSize: '14px' }}>
+                        ₹{selectedBreakdown.staffBillTotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0 0', borderTop: '2px solid #E2E8F0', fontSize: '15px', fontWeight: 800 }}>
                     <span>Net Total Billed:</span>
                     <span style={{ color: '#15803D' }}>
-                      ₹{((selectedBooking.bookingFee || 49) + (selectedBooking.pricing?.staffServiceCharge || 299)).toLocaleString('en-IN')}
+                      ₹{selectedBreakdown.netTotal.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>

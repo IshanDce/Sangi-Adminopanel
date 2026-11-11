@@ -330,7 +330,7 @@ export const DashboardPage: React.FC = () => {
                   <th>Customer</th>
                   <th>Assigned Staff</th>
                   <th>Scheduled Date & Time</th>
-                  <th>Booking Fee</th>
+                  <th>Booking & Service Fee</th>
                   <th>Status</th>
                   <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
@@ -420,9 +420,14 @@ export const DashboardPage: React.FC = () => {
                         {/* Fee */}
                         <td>
                           <div style={{ fontSize: '14px', fontWeight: 800, color: '#15803D' }}>
-                            ₹{b.bookingFee || 49}
+                            ₹{Number(b.bookingFee ?? 0).toLocaleString('en-IN')}
                           </div>
                           <div style={{ fontSize: '10.5px', color: '#64748B' }}>Platform Fee</div>
+                          {(b.totalServiceAmount != null || b.serviceCharge != null || b.additionalCharge != null) && (
+                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F172A', marginTop: 2 }}>
+                              Service Bill: ₹{Number(b.totalServiceAmount ?? ((b.serviceCharge || 0) + (b.additionalCharge || 0))).toLocaleString('en-IN')}
+                            </div>
+                          )}
                         </td>
 
                         {/* Status */}
