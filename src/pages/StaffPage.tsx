@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Search, Ban, CheckCircle, ShieldAlert, Phone, Mail, Wallet, 
-  MapPin, Eye, Star, Calendar, Clock, Briefcase, FileCheck, AlertCircle, RefreshCw, Users, ShieldCheck, UserX
+  MapPin, Eye, Star, Calendar, Clock, Briefcase, FileCheck, AlertCircle, RefreshCw, Users, ShieldCheck, UserX, ExternalLink
 } from 'lucide-react';
 import { AdminShell } from '../components/layout/AdminShell';
 import { Modal } from '../components/common/Modal';
@@ -136,6 +136,44 @@ export const StaffPage: React.FC = () => {
 
   const dayOrder = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
+  // Extract staff live GPS coordinates from profile (GeoJSON Point: [lng, lat]) or user document
+  const getStaffLocation = (staff: any, details?: any) => {
+    const prof = details?.profile || staff?.profile;
+    const usr = details?.user || staff;
+
+    let lat: number | null = null;
+    let lng: number | null = null;
+    let updatedAt: Date | null = null;
+
+    // 1. StaffProfile GeoJSON Point: [lng, lat]
+    if (prof?.location?.coordinates && Array.isArray(prof.location.coordinates) && prof.location.coordinates.length >= 2) {
+      const rawLng = Number(prof.location.coordinates[0]);
+      const rawLat = Number(prof.location.coordinates[1]);
+      if (!Number.isNaN(rawLat) && !Number.isNaN(rawLng) && (rawLat !== 0 || rawLng !== 0)) {
+        lat = rawLat;
+        lng = rawLng;
+        if (prof.lastLocationUpdateAt) updatedAt = new Date(prof.lastLocationUpdateAt);
+      }
+    }
+
+    // 2. User document fallback
+    if (lat == null && usr?.lastKnownLat != null && usr?.lastKnownLng != null) {
+      const rawLat = Number(usr.lastKnownLat);
+      const rawLng = Number(usr.lastKnownLng);
+      if (!Number.isNaN(rawLat) && !Number.isNaN(rawLng) && (rawLat !== 0 || rawLng !== 0)) {
+        lat = rawLat;
+        lng = rawLng;
+        if (usr.lastLocationUpdateAt) updatedAt = new Date(usr.lastLocationUpdateAt);
+      }
+    }
+
+    return { lat, lng, updatedAt };
+  };
+
+  const getGoogleMapsUrl = (lat: number, lng: number) => {
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  };
+
   return (
     <AdminShell
       title="Staff & Service Partners"
@@ -246,6 +284,7 @@ export const StaffPage: React.FC = () => {
                   <th>Contact Details</th>
                   <th>Services Offered</th>
                   <th>Rating & Earnings</th>
+                  <th>Last GPS Location</th>
                   <th>KYC Status</th>
                   <th>Account Status</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
@@ -254,13 +293,13 @@ export const StaffPage: React.FC = () => {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
                       Loading service partners...
                     </td>
                   </tr>
                 ) : staffList.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="empty-state">
                         <Users size={36} />
                         <h4>No staff members found</h4>
@@ -369,6 +408,49 @@ export const StaffPage: React.FC = () => {
                               ₹{(st.walletBalance || 0).toLocaleString('en-IN')}
                             </div>
                           </div>
+                        </td>
+
+                        {/* Last GPS Location */}
+                        <td>
+                          {(() => {
+                            const loc = getStaffLocation(st);
+                            return loc.lat && loc.lng ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontFamily: 'monospace',
+                                  padding: '2px 6px',
+                                  background: '#F0FDF4',
+                                  borderRadius: '4px',
+                                  color: '#166534',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  width: 'fit-content',
+                                }}>
+                                  <MapPin size={11} /> {loc.lat.toFixed(3)}, {loc.lng.toFixed(3)}
+                                </span>
+                                <a
+                                  href={getGoogleMapsUrl(loc.lat, loc.lng)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{
+                                    fontSize: '10.5px',
+                                    color: '#16A34A',
+                                    textDecoration: 'none',
+                                    fontWeight: 700,
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                  }}
+                                >
+                                  <ExternalLink size={10} /> Map
+                                </a>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>Not recorded</span>
+                            );
+                          })()}
                         </td>
 
                         {/* KYC */}
@@ -494,6 +576,102 @@ export const StaffPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Staff Live Location & GPS Tracking Card */}
+              {(() => {
+                const loc = getStaffLocation(selectedStaff, staffDetails);
+                return (
+                  <div style={{
+                    background: '#FFFFFF',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '12px',
+                    padding: '16px',
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: 12,
+                      borderBottom: '1px solid #F1F5F9',
+                      paddingBottom: 8,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <MapPin size={16} color="#16A34A" />
+                        <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                          Staff Live Location (GPS Coordinates)
+                        </span>
+                        {loc.lat && loc.lng && (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '2px 8px',
+                            background: '#DCFCE7',
+                            color: '#15803D',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            borderRadius: '9999px',
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A' }}></span>
+                            Active Fix
+                          </span>
+                        )}
+                      </div>
+                      {loc.lat && loc.lng && (
+                        <a
+                          href={getGoogleMapsUrl(loc.lat, loc.lng)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="btn btn-primary btn-sm"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        >
+                          <ExternalLink size={13} />
+                          <span>Open Live Map</span>
+                        </a>
+                      )}
+                    </div>
+
+                    {loc.lat && loc.lng ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                        <div style={{ padding: '12px 14px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                          <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600 }}>GPS Latitude & Longitude</div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', fontFamily: 'monospace', marginTop: 3 }}>
+                            {loc.lat.toFixed(5)}, {loc.lng.toFixed(5)}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B', marginTop: 2 }}>
+                            Lat: {loc.lat.toFixed(6)} | Lng: {loc.lng.toFixed(6)}
+                          </div>
+                        </div>
+
+                        <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                          <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Last Location Ping</div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', marginTop: 3 }}>
+                            {loc.updatedAt ? loc.updatedAt.toLocaleString() : 'Recently updated'}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#16A34A', marginTop: 2 }}>
+                            Automated background GPS tracking
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        padding: '14px',
+                        background: '#F8FAFC',
+                        borderRadius: '8px',
+                        border: '1px solid #E2E8F0',
+                        fontSize: '12.5px',
+                        color: '#64748B',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                      }}>
+                        <MapPin size={16} color="#94A3B8" />
+                        <span>No live GPS fix recorded yet. Coordinates update automatically when staff is active in the SANGI Partner App.</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Requirement #6: Availability Schedule & Hours */}
               <div style={{

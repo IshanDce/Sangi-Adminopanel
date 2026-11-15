@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Search, Ban, CheckCircle, ShieldAlert, Phone, Mail, Wallet, 
-  MapPin, Eye, Users, UserCheck, UserX, RefreshCw, Share2
+  MapPin, Eye, Users, UserCheck, UserX, RefreshCw, Share2, ExternalLink
 } from 'lucide-react';
 import { AdminShell } from '../components/layout/AdminShell';
 import { Modal } from '../components/common/Modal';
@@ -289,19 +289,38 @@ export const CustomersPage: React.FC = () => {
                         {/* GPS */}
                         <td>
                           {c.lastKnownLat && c.lastKnownLng ? (
-                            <span style={{
-                              fontSize: '11px',
-                              fontFamily: 'monospace',
-                              padding: '2px 6px',
-                              background: '#F0FDF4',
-                              borderRadius: '4px',
-                              color: '#166534',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 3,
-                            }}>
-                              <MapPin size={11} /> {c.lastKnownLat.toFixed(3)}, {c.lastKnownLng.toFixed(3)}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              <span style={{
+                                fontSize: '11px',
+                                fontFamily: 'monospace',
+                                padding: '2px 6px',
+                                background: '#F0FDF4',
+                                borderRadius: '4px',
+                                color: '#166534',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 3,
+                                width: 'fit-content',
+                              }}>
+                                <MapPin size={11} /> {c.lastKnownLat.toFixed(3)}, {c.lastKnownLng.toFixed(3)}
+                              </span>
+                              <a
+                                href={`https://www.google.com/maps?q=${c.lastKnownLat},${c.lastKnownLng}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  fontSize: '10.5px',
+                                  color: '#16A34A',
+                                  textDecoration: 'none',
+                                  fontWeight: 700,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 2,
+                                }}
+                              >
+                                <ExternalLink size={10} /> Map
+                              </a>
+                            </div>
                           ) : (
                             <span style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>Not recorded</span>
                           )}
@@ -427,6 +446,97 @@ export const CustomersPage: React.FC = () => {
                   </span>
                 </div>
               )}
+
+              {/* Customer Live GPS Location & Tracking */}
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '12px',
+                border: '1px solid #E2E8F0',
+                padding: '16px',
+              }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 12,
+                  borderBottom: '1px solid #F1F5F9',
+                  paddingBottom: 8,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <MapPin size={16} color="#16A34A" />
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                      Customer Live Location (GPS Coordinates)
+                    </span>
+                    {selectedCustomer.lastKnownLat && selectedCustomer.lastKnownLng && (
+                      <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4,
+                        padding: '2px 8px',
+                        background: '#DCFCE7',
+                        color: '#15803D',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        borderRadius: '9999px',
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#16A34A' }}></span>
+                        Active Fix
+                      </span>
+                    )}
+                  </div>
+                  {selectedCustomer.lastKnownLat && selectedCustomer.lastKnownLng && (
+                    <a
+                      href={`https://www.google.com/maps?q=${selectedCustomer.lastKnownLat},${selectedCustomer.lastKnownLng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                    >
+                      <ExternalLink size={13} />
+                      <span>Open Live Map</span>
+                    </a>
+                  )}
+                </div>
+
+                {selectedCustomer.lastKnownLat && selectedCustomer.lastKnownLng ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
+                    <div style={{ padding: '12px 14px', background: '#F0FDF4', borderRadius: '8px', border: '1px solid #BBF7D0' }}>
+                      <div style={{ fontSize: '11px', color: '#166534', fontWeight: 600 }}>GPS Latitude & Longitude</div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', fontFamily: 'monospace', marginTop: 3 }}>
+                        {Number(selectedCustomer.lastKnownLat).toFixed(5)}, {Number(selectedCustomer.lastKnownLng).toFixed(5)}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: 2 }}>
+                        Lat: {Number(selectedCustomer.lastKnownLat).toFixed(6)} | Lng: {Number(selectedCustomer.lastKnownLng).toFixed(6)}
+                      </div>
+                    </div>
+
+                    <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Last Location Ping</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', marginTop: 3 }}>
+                        {selectedCustomer.lastLocationUpdateAt ? new Date(selectedCustomer.lastLocationUpdateAt).toLocaleString() : 'Recently updated'}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#16A34A', marginTop: 2 }}>
+                        Automated background GPS tracking
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    padding: '14px',
+                    background: '#F8FAFC',
+                    borderRadius: '8px',
+                    border: '1px solid #E2E8F0',
+                    fontSize: '12.5px',
+                    color: '#64748B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}>
+                    <MapPin size={16} color="#94A3B8" />
+                    <span>No live GPS fix recorded yet. Coordinates update automatically when customer uses the SANGI App.</span>
+                  </div>
+                )}
+              </div>
 
               {/* Recent Bookings */}
               <div style={{
