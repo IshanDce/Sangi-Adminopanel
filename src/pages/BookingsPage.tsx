@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Calendar, Clock, MapPin, Search, Eye, ExternalLink, Phone, 
-  DollarSign, CheckCircle2, AlertCircle, RefreshCw, Navigation, ShieldCheck, Tag, CalendarDays
+  DollarSign, CheckCircle2, AlertCircle, RefreshCw, Navigation, ShieldCheck, Tag, CalendarDays,
+  Sliders, Trash2
 } from 'lucide-react';
 import { AdminShell } from '../components/layout/AdminShell';
 import { Modal } from '../components/common/Modal';
@@ -19,6 +20,76 @@ export const BookingsPage: React.FC = () => {
   // Selected Booking for Full Breakdown & GPS Modal
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+
+  // Bill Adjustment Modal State
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [adjustTargetBooking, setAdjustTargetBooking] = useState<any | null>(null);
+  const [adjServiceCharge, setAdjServiceCharge] = useState<number>(0);
+  const [adjAdditionalCharge, setAdjAdditionalCharge] = useState<number>(0);
+  const [adjStatus, setAdjStatus] = useState<string>('paymentPending');
+  const [adjReason, setAdjReason] = useState<string>('');
+  const [adjustLoading, setAdjustLoading] = useState(false);
+
+  const handleOpenAdjustModal = (b: any) => {
+    setAdjustTargetBooking(b);
+    setAdjServiceCharge(Number(b.serviceCharge ?? 0));
+    setAdjAdditionalCharge(Number(b.additionalCharge ?? 0));
+    setAdjStatus(b.status || 'paymentPending');
+    setAdjReason('');
+    setIsAdjustModalOpen(true);
+  };
+
+  const handleQuickRemoveBill = () => {
+    setAdjServiceCharge(0);
+    setAdjAdditionalCharge(0);
+    setAdjStatus('cancelled');
+    const oldTotal = Number(
+      adjustTargetBooking?.totalServiceAmount ??
+      (Number(adjustTargetBooking?.serviceCharge ?? 0) + Number(adjustTargetBooking?.additionalCharge ?? 0))
+    );
+    setAdjReason(`Staff did not visit customer location; invalid service bill of ₹${oldTotal} removed by Admin.`);
+  };
+
+  const handleAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustTargetBooking) return;
+    if (!adjReason.trim()) {
+      alert('Please provide a reason for adjusting or removing this bill. This reason will be sent to both customer and staff via notification.');
+      return;
+    }
+
+    setAdjustLoading(true);
+    try {
+      const res = await api.adjustBookingBill(adjustTargetBooking._id, {
+        serviceCharge: adjServiceCharge,
+        additionalCharge: adjAdditionalCharge,
+        status: adjStatus,
+        reason: adjReason.trim(),
+      });
+
+      if (res.success) {
+        alert(`Bill updated successfully! Revised Total Service Fee: ₹${(Number(adjServiceCharge) + Number(adjAdditionalCharge))}. Push notifications dispatched to customer and staff.`);
+        setIsAdjustModalOpen(false);
+
+        // Update selectedBooking if dossier is open
+        if (selectedBooking && selectedBooking._id === adjustTargetBooking._id) {
+          setSelectedBooking({
+            ...selectedBooking,
+            serviceCharge: adjServiceCharge,
+            additionalCharge: adjAdditionalCharge,
+            totalServiceAmount: Number(adjServiceCharge) + Number(adjAdditionalCharge),
+            status: adjStatus,
+          });
+        }
+
+        fetchBookings();
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to adjust booking bill');
+    } finally {
+      setAdjustLoading(false);
+    }
+  };
 
   const fetchBookings = async () => {
     setIsLoading(true);
@@ -373,14 +444,25 @@ export const BookingsPage: React.FC = () => {
 
                         {/* Actions */}
                         <td style={{ textAlign: 'right' }}>
-                          <button
-                            onClick={() => handleOpenDetail(b)}
-                            className="btn btn-secondary btn-sm"
-                            title="Inspect Service Job Breakdown"
-                          >
-                            <Eye size={13} />
-                            <span>Breakdown</span>
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                            <button
+                              onClick={() => handleOpenAdjustModal(b)}
+                              className="btn btn-secondary btn-sm"
+                              title="Edit or Remove Service Charges"
+                              style={{ color: '#0F172A' }}
+                            >
+                              <Sliders size={13} color="#2563EB" />
+                              <span>Adjust Bill</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenDetail(b)}
+                              className="btn btn-secondary btn-sm"
+                              title="Inspect Service Job Breakdown"
+                            >
+                              <Eye size={13} />
+                              <span>Breakdown</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -450,11 +532,22 @@ export const BookingsPage: React.FC = () => {
                 border: '1px solid #E2E8F0',
                 padding: '16px',
               }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid #F1F5F9', paddingBottom: 8 }}>
-                  <DollarSign size={16} color="#16A34A" />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
-                    Service Job Charges & Staff Earnings (Rule #7)
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderBottom: '1px solid #F1F5F9', paddingBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <DollarSign size={16} color="#16A34A" />
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
+                      Service Job Charges & Staff Earnings (Rule #7)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenAdjustModal(selectedBooking)}
+                    className="btn btn-primary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Sliders size={13} />
+                    <span>Edit / Adjust Bill</span>
+                  </button>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, fontSize: '13px' }}>
@@ -566,7 +659,16 @@ export const BookingsPage: React.FC = () => {
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+                <button
+                  type="button"
+                  onClick={() => handleOpenAdjustModal(selectedBooking)}
+                  className="btn btn-primary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <Sliders size={14} />
+                  <span>Edit or Remove Bill Amount</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsDetailOpen(false)}
@@ -576,6 +678,208 @@ export const BookingsPage: React.FC = () => {
                 </button>
               </div>
             </div>
+          )}
+        </Modal>
+
+        {/* ── Admin Bill Adjustment & Fee Removal Modal ── */}
+        <Modal
+          isOpen={isAdjustModalOpen}
+          onClose={() => { setIsAdjustModalOpen(false); setAdjustTargetBooking(null); }}
+          title={`Adjust / Remove Booking Bill — #${adjustTargetBooking?.bookingNumber || 'BK'}`}
+          maxWidth="560px"
+        >
+          {adjustTargetBooking && (
+            <form onSubmit={handleAdjustSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Context Summary */}
+              <div style={{ padding: '12px 14px', background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', fontSize: '12.5px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <div>
+                    <div style={{ color: '#64748B', fontSize: '11px' }}>Customer</div>
+                    <div style={{ fontWeight: 700, color: '#0F172A', marginTop: 1 }}>
+                      {adjustTargetBooking.customerId?.fullName || 'Customer'}
+                    </div>
+                    <div style={{ color: '#16A34A', fontSize: '11.5px', marginTop: 1 }}>
+                      {adjustTargetBooking.customerId?.phone}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#64748B', fontSize: '11px' }}>Staff Assigned</div>
+                    <div style={{ fontWeight: 700, color: '#0F172A', marginTop: 1 }}>
+                      {adjustTargetBooking.staffId?.fullName || 'Staff'}
+                    </div>
+                    <div style={{ color: '#16A34A', fontSize: '11.5px', marginTop: 1 }}>
+                      {adjustTargetBooking.staffId?.phone}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notice Banner */}
+              <div style={{
+                padding: '12px 14px',
+                background: '#FEF3C7',
+                border: '1px solid #FCD34D',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: '#92400E',
+                display: 'flex',
+                gap: 8,
+                alignItems: 'flex-start',
+              }}>
+                <AlertCircle size={16} color="#B45309" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <strong>Live Synchronization:</strong> Any changes made here immediately update in both <strong>Customer App</strong> and <strong>Staff App</strong>. Both parties will receive an automated Push Notification & in-app alert stating the revised fee and admin reason.
+                </div>
+              </div>
+
+              {/* Quick Remove Action */}
+              <div style={{
+                padding: '10px 12px',
+                background: '#FEE2E2',
+                border: '1px solid #FCA5A5',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#991B1B' }}>
+                    Quick Action: Staff Didn't Visit / Bogus Bill
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#B91C1C' }}>
+                    Zero out all charges and void the booking bill
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleQuickRemoveBill}
+                  className="btn btn-sm"
+                  style={{
+                    background: '#DC2626',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Trash2 size={13} /> Set to ₹0 & Cancel
+                </button>
+              </div>
+
+              {/* Input Fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    Staff Service Labor Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="form-input"
+                    value={adjServiceCharge}
+                    onChange={(e) => setAdjServiceCharge(Math.max(0, Number(e.target.value)))}
+                    required
+                  />
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>Primary labor charge entered by staff</span>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label" style={{ fontWeight: 700 }}>
+                    Parts / Additional Charge (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    className="form-input"
+                    value={adjAdditionalCharge}
+                    onChange={(e) => setAdjAdditionalCharge(Math.max(0, Number(e.target.value)))}
+                  />
+                  <span style={{ fontSize: '11px', color: '#64748B' }}>Spare parts or material cost</span>
+                </div>
+              </div>
+
+              {/* Total Calculation Display */}
+              <div style={{
+                padding: '12px 14px',
+                background: '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                borderRadius: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <span style={{ fontWeight: 700, color: '#166534', fontSize: '13.5px' }}>
+                  Revised Payable Service Bill:
+                </span>
+                <span style={{ fontWeight: 800, color: '#15803D', fontSize: '18px' }}>
+                  ₹{(Number(adjServiceCharge) + Number(adjAdditionalCharge)).toLocaleString('en-IN')}
+                </span>
+              </div>
+
+              {/* Status Dropdown */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Booking Status
+                </label>
+                <select
+                  className="form-input"
+                  value={adjStatus}
+                  onChange={(e) => setAdjStatus(e.target.value)}
+                >
+                  <option value="paymentPending">Payment Pending (Waiting for customer to pay revised amount)</option>
+                  <option value="ongoing">Ongoing (Revert to active service in-progress)</option>
+                  <option value="completed">Completed (Bill settled / zero balance)</option>
+                  <option value="cancelled">Cancelled (Booking voided / service disputed)</option>
+                </select>
+                <span style={{ fontSize: '11px', color: '#64748B' }}>
+                  Controls which action buttons appear on the Customer & Staff mobile apps
+                </span>
+              </div>
+
+              {/* Reason (Required) */}
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label" style={{ fontWeight: 700 }}>
+                  Reason for Adjustment / Removal <span style={{ color: '#DC2626' }}>*</span>
+                </label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="e.g. Staff did not reach customer address; ₹500 fee removed after customer dispute confirmation."
+                  value={adjReason}
+                  onChange={(e) => setAdjReason(e.target.value)}
+                  required
+                />
+                <span style={{ fontSize: '11px', color: '#64748B' }}>
+                  This reason will be included in the push notifications sent to Customer and Staff.
+                </span>
+              </div>
+
+              {/* Modal Actions */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustModalOpen(false)}
+                  className="btn btn-secondary"
+                  disabled={adjustLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={adjustLoading || !adjReason.trim()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                >
+                  <CheckCircle2 size={15} />
+                  <span>{adjustLoading ? 'Updating & Notifying...' : 'Save & Send Notifications'}</span>
+                </button>
+              </div>
+            </form>
           )}
         </Modal>
       </div>

@@ -30,6 +30,7 @@ export const StaffPage: React.FC = () => {
     total: 0,
     verified: 0,
     pending: 0,
+    incomplete: 0,
     blocked: 0,
   });
 
@@ -50,11 +51,13 @@ export const StaffPage: React.FC = () => {
         // Derive quick summary stats
         const verifiedCount = res.staff.filter((s: any) => s.profile?.kycStatus === 'approved').length;
         const pendingCount = res.staff.filter((s: any) => s.profile?.kycStatus === 'pending').length;
+        const incompleteCount = res.staff.filter((s: any) => !s.profile || s.profile?.kycStatus === 'not_submitted').length;
         const blockedCount = res.staff.filter((s: any) => s.isBlocked).length;
         setStats({
           total: res.pagination.total,
           verified: verifiedCount,
           pending: pendingCount,
+          incomplete: incompleteCount,
           blocked: blockedCount,
         });
       }
@@ -219,6 +222,17 @@ export const StaffPage: React.FC = () => {
 
           <div className="stat-card">
             <div>
+              <div className="stat-label">Incomplete KYC</div>
+              <div className="stat-value">{stats.incomplete}</div>
+              <div className="stat-subtitle">No documents uploaded</div>
+            </div>
+            <div className="stat-icon-box" style={{ background: '#F1F5F9', color: '#64748B' }}>
+              <AlertCircle size={24} />
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div>
               <div className="stat-label">Suspended / Blocked</div>
               <div className="stat-value">{stats.blocked}</div>
               <div className="stat-subtitle">Restricted accounts</div>
@@ -245,10 +259,16 @@ export const StaffPage: React.FC = () => {
               KYC Approved
             </button>
             <button
-              onClick={() => { setFilterKyc('pending'); setPage(1); }}
+              onClick={() => { setFilterKyc('pending'); setFilterBlocked('all'); setPage(1); }}
               className={`tab-btn ${filterKyc === 'pending' ? 'active' : ''}`}
             >
               KYC Pending
+            </button>
+            <button
+              onClick={() => { setFilterKyc('not_submitted'); setFilterBlocked('all'); setPage(1); }}
+              className={`tab-btn ${filterKyc === 'not_submitted' ? 'active' : ''}`}
+            >
+              Incomplete / No KYC
             </button>
             <button
               onClick={() => { setFilterBlocked('true'); setFilterKyc('all'); setPage(1); }}
@@ -455,7 +475,7 @@ export const StaffPage: React.FC = () => {
 
                         {/* KYC */}
                         <td>
-                          <StatusBadge status={st.profile?.kycStatus || 'pending'} />
+                          <StatusBadge status={st.profile?.kycStatus || 'not_submitted'} />
                         </td>
 
                         {/* Account Status */}
@@ -781,15 +801,17 @@ export const StaffPage: React.FC = () => {
                     <span style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>
                       KYC Compliance & Order Eligibility
                     </span>
-                    <StatusBadge status={selectedStaff.profile?.kycStatus || 'pending'} />
+                    <StatusBadge status={selectedStaff.profile?.kycStatus || 'not_submitted'} />
                   </div>
                   <div style={{ fontSize: '12px', color: '#64748B', marginTop: 4 }}>
                     {selectedStaff.profile?.kycStatus === 'approved'
                       ? 'Identity documents verified. Partner is active and authorized to accept live customer bookings.'
-                      : 'Pending KYC review. Approving will activate their live profile to receive customer orders.'}
+                      : selectedStaff.profile?.kycStatus === 'not_submitted' || !selectedStaff.profile
+                        ? 'Staff registered on mobile app (Step 1) but has NOT submitted Aadhaar / PAN documents yet.'
+                        : 'Pending KYC review. Approving will activate their live profile to receive customer orders.'}
                   </div>
                 </div>
-                {selectedStaff.profile?.kycStatus !== 'approved' && (
+                {selectedStaff.profile?.kycStatus === 'pending' && (
                   <button
                     onClick={() => handleApproveKyc(selectedStaff)}
                     disabled={actionLoading}

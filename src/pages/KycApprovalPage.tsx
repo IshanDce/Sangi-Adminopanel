@@ -10,7 +10,7 @@ import { api } from '../services/api';
 
 export const KycApprovalPage: React.FC = () => {
   const [staffList, setStaffList] = useState<any[]>([]);
-  const [filterStatus, setFilterStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+  const [filterStatus, setFilterStatus] = useState<'pending' | 'not_submitted' | 'approved' | 'rejected'>('pending');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -96,6 +96,12 @@ export const KycApprovalPage: React.FC = () => {
               className={`tab-btn ${filterStatus === 'pending' ? 'active' : ''}`}
             >
               Pending Approval ({filterStatus === 'pending' ? total : '•'})
+            </button>
+            <button
+              onClick={() => setFilterStatus('not_submitted')}
+              className={`tab-btn ${filterStatus === 'not_submitted' ? 'active' : ''}`}
+            >
+              Incomplete / Not Submitted ({filterStatus === 'not_submitted' ? total : '•'})
             </button>
             <button
               onClick={() => setFilterStatus('approved')}
@@ -199,7 +205,7 @@ export const KycApprovalPage: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                      <StatusBadge status={st.profile?.kycStatus || 'pending'} />
+                      <StatusBadge status={st.profile?.kycStatus || 'not_submitted'} />
                     </div>
 
                     {/* Services Chips */}
@@ -217,130 +223,155 @@ export const KycApprovalPage: React.FC = () => {
 
                   {/* Documents Container */}
                   <div style={{ padding: '18px 20px', background: '#F8FAFC', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                    {/* Aadhaar */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                        <span>Aadhaar Identity Proof</span>
-                        <span style={{ fontFamily: 'monospace', color: '#64748B' }}>
-                          {kyc.aadhaarNumber || 'Attached'}
-                        </span>
+                    {!aadhaarFront && !panDoc ? (
+                      <div style={{
+                        padding: '16px',
+                        background: '#FFFBEB',
+                        border: '1px solid #FDE68A',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, color: '#B45309', fontSize: '13.5px' }}>
+                          <AlertCircle size={16} />
+                          <span>KYC Documents Not Uploaded Yet</span>
+                        </div>
+                        <div style={{ fontSize: '12.5px', color: '#92400E', lineHeight: '1.5' }}>
+                          This partner installed the mobile app and completed initial registration, but has not yet uploaded Aadhaar or PAN documents.
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#64748B', marginTop: 2 }}>
+                          Direct contact: <a href={`tel:${st.phone}`} style={{ fontWeight: 700, color: '#16A34A', textDecoration: 'none' }}>{st.phone}</a>
+                        </div>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                        {aadhaarFront ? (
-                          <div
-                            onClick={() => setLightboxImg({ url: aadhaarFront, title: `${displayName} — Aadhaar Front` })}
-                            style={{
-                              height: 110,
-                              background: '#FFFFFF',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                              position: 'relative',
-                            }}
-                          >
-                            <img src={aadhaarFront} alt="Aadhaar Front" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(0,0,0,0.3)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#FFFFFF',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              gap: 4,
-                            }}>
-                              <ZoomIn size={14} /> Front
-                            </div>
+                    ) : (
+                      <>
+                        {/* Aadhaar */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                            <span>Aadhaar Identity Proof</span>
+                            <span style={{ fontFamily: 'monospace', color: '#64748B' }}>
+                              {kyc.aadhaarNumber || 'Attached'}
+                            </span>
                           </div>
-                        ) : (
-                          <div style={{ height: 110, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
-                            No front image
-                          </div>
-                        )}
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            {aadhaarFront ? (
+                              <div
+                                onClick={() => setLightboxImg({ url: aadhaarFront, title: `${displayName} — Aadhaar Front` })}
+                                style={{
+                                  height: 110,
+                                  background: '#FFFFFF',
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '8px',
+                                  overflow: 'hidden',
+                                  cursor: 'pointer',
+                                  position: 'relative',
+                                }}
+                              >
+                                <img src={aadhaarFront} alt="Aadhaar Front" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'rgba(0,0,0,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#FFFFFF',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  gap: 4,
+                                }}>
+                                  <ZoomIn size={14} /> Front
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ height: 110, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
+                                No front image
+                              </div>
+                            )}
 
-                        {aadhaarBack ? (
-                          <div
-                            onClick={() => setLightboxImg({ url: aadhaarBack, title: `${displayName} — Aadhaar Back` })}
-                            style={{
-                              height: 110,
-                              background: '#FFFFFF',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '8px',
-                              overflow: 'hidden',
-                              cursor: 'pointer',
-                              position: 'relative',
-                            }}
-                          >
-                            <img src={aadhaarBack} alt="Aadhaar Back" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{
-                              position: 'absolute',
-                              inset: 0,
-                              background: 'rgba(0,0,0,0.3)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#FFFFFF',
-                              fontSize: '11px',
-                              fontWeight: 600,
-                              gap: 4,
-                            }}>
-                              <ZoomIn size={14} /> Back
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{ height: 110, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
-                            No back image
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* PAN Card */}
-                    <div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
-                        <span>PAN Card</span>
-                        <span style={{ fontFamily: 'monospace', color: '#64748B' }}>
-                          {kyc.panNumber || 'Attached'}
-                        </span>
-                      </div>
-                      {panDoc ? (
-                        <div
-                          onClick={() => setLightboxImg({ url: panDoc, title: `${displayName} — PAN Card` })}
-                          style={{
-                            height: 90,
-                            background: '#FFFFFF',
-                            border: '1px solid #CBD5E1',
-                            borderRadius: '8px',
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            position: 'relative',
-                          }}
-                        >
-                          <img src={panDoc} alt="PAN Card" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          <div style={{
-                            position: 'absolute',
-                            inset: 0,
-                            background: 'rgba(0,0,0,0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: '#FFFFFF',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            gap: 4,
-                          }}>
-                            <ZoomIn size={14} /> Expand PAN
+                            {aadhaarBack ? (
+                              <div
+                                onClick={() => setLightboxImg({ url: aadhaarBack, title: `${displayName} — Aadhaar Back` })}
+                                style={{
+                                  height: 110,
+                                  background: '#FFFFFF',
+                                  border: '1px solid #CBD5E1',
+                                  borderRadius: '8px',
+                                  overflow: 'hidden',
+                                  cursor: 'pointer',
+                                  position: 'relative',
+                                }}
+                              >
+                                <img src={aadhaarBack} alt="Aadhaar Back" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{
+                                  position: 'absolute',
+                                  inset: 0,
+                                  background: 'rgba(0,0,0,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  color: '#FFFFFF',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  gap: 4,
+                                }}>
+                                  <ZoomIn size={14} /> Back
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ height: 110, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
+                                No back image
+                              </div>
+                            )}
                           </div>
                         </div>
-                      ) : (
-                        <div style={{ height: 60, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
-                          No PAN document uploaded
+
+                        {/* PAN Card */}
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: 6 }}>
+                            <span>PAN Card</span>
+                            <span style={{ fontFamily: 'monospace', color: '#64748B' }}>
+                              {kyc.panNumber || 'Attached'}
+                            </span>
+                          </div>
+                          {panDoc ? (
+                            <div
+                              onClick={() => setLightboxImg({ url: panDoc, title: `${displayName} — PAN Card` })}
+                              style={{
+                                height: 90,
+                                background: '#FFFFFF',
+                                border: '1px solid #CBD5E1',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                position: 'relative',
+                              }}
+                            >
+                              <img src={panDoc} alt="PAN Card" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                background: 'rgba(0,0,0,0.3)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#FFFFFF',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                gap: 4,
+                              }}>
+                                <ZoomIn size={14} /> Expand PAN
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{ height: 60, background: '#F1F5F9', border: '1px dashed #CBD5E1', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', color: '#94A3B8' }}>
+                              No PAN document uploaded
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Actions Bar */}
@@ -348,28 +379,39 @@ export const KycApprovalPage: React.FC = () => {
                     <span style={{ fontSize: '11.5px', color: '#94A3B8' }}>
                       Registered: {st.createdAt ? new Date(st.createdAt).toLocaleDateString() : 'N/A'}
                     </span>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedStaff(st);
-                          setIsRejectModalOpen(true);
-                        }}
-                        className="btn btn-danger-outline btn-sm"
+                    {filterStatus === 'not_submitted' || (!aadhaarFront && !panDoc) ? (
+                      <a
+                        href={`tel:${st.phone}`}
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
                       >
-                        <XCircle size={14} />
-                        <span>Reject</span>
-                      </button>
-                      <button
-                        type="button"
-                        disabled={actionLoading}
-                        onClick={() => handleApprove(st)}
-                        className="btn btn-primary btn-sm"
-                      >
-                        <CheckCircle2 size={14} />
-                        <span>Approve KYC</span>
-                      </button>
-                    </div>
+                        <Phone size={13} color="#16A34A" />
+                        <span>Contact Staff Partner</span>
+                      </a>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedStaff(st);
+                            setIsRejectModalOpen(true);
+                          }}
+                          className="btn btn-danger-outline btn-sm"
+                        >
+                          <XCircle size={14} />
+                          <span>Reject</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={() => handleApprove(st)}
+                          className="btn btn-primary btn-sm"
+                        >
+                          <CheckCircle2 size={14} />
+                          <span>Approve KYC</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

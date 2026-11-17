@@ -118,6 +118,13 @@ class ApiClient {
     return this.request<{ success: boolean; booking: any; staffDetails: any }>(`/admin/bookings/${id}`);
   }
 
+  adjustBookingBill(id: string, data: { serviceCharge?: number; additionalCharge?: number; status?: string; reason: string }) {
+    return this.request<{ success: boolean; message: string; booking: any }>(`/admin/bookings/${id}/adjust`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ── Services & Pricing ──
   getServices() {
     return this.request<{ success: boolean; services: any[] }>('/admin/services');
